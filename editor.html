@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<title>الاستوديو المتكامل — Blender Mode</title>
+<style>
+  :root {
+    --bg: #1d1d1d; --panel: #2b2b2b; --panel2: #242424; --btn: #383838; --btn-hover: #474747;
+    --line: #111; --text: #d6d6d6; --dim: #9a9a9a; --accent: #4b7bb5; --accent2: #e87d0d; --danger: #c0483c;
+    --radius: 4px; --menu-h: 30px; --status-h: 24px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; width: 100vw; height: 100vh; overflow: hidden; background: var(--bg); color: var(--text);
+    font: 12.5px/1.35 'Segoe UI', Tahoma, 'Noto Sans Arabic', system-ui, sans-serif; overscroll-behavior: none; }
+  button, input, select { font: inherit; color: inherit; }
+  button { background: var(--btn); border: 1px solid #222; border-radius: var(--radius); padding: 4px 9px; cursor: pointer; }
+  button:hover { background: var(--btn-hover); }
+  button.active, button.on { background: var(--accent); border-color: #3a6090; color: #fff; }
+  button.warn.on { background: var(--accent2); border-color: #b9620a; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  input[type=text], input[type=number], select { background: #1a1a1a; border: 1px solid #3a3a3a; border-radius: 3px; padding: 3px 6px; min-width: 0; }
+  input[type=number] { width: 100%; text-align: center; direction: ltr; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  input[type=color] { width: 34px; height: 24px; padding: 0; border: 1px solid #3a3a3a; background: none; }
+  input[type=checkbox] { accent-color: var(--accent); }
+
+  #app { width: 100vw; height: 100vh; display: grid; grid-template-rows: var(--menu-h) 1fr var(--status-h); direction: ltr; }
+  #menubar { display: flex; align-items: center; gap: 2px; background: #181818; border-bottom: 1px solid var(--line); padding: 0 6px; direction: rtl; overflow-x: auto; white-space: nowrap; }
+  #menubar button { background: transparent; border: 0; padding: 5px 10px; }
+  #menubar button:hover, #menubar button.open { background: var(--btn); }
+  #menubar .brand { color: var(--accent2); font-weight: 700; padding: 0 10px; }
+  #menubar .spacer { flex: 1; }
+  #main { display: grid; grid-template-columns: 44px 1fr 330px; min-height: 0; }
+  #toolbar { background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; padding: 6px 4px; }
+  #toolbar button { width: 36px; height: 36px; padding: 0; font-size: 16px; }
+  #toolbar .sep { height: 1px; background: #3a3a3a; margin: 4px 2px; }
+  #stage { position: relative; min-width: 0; min-height: 0; background: #303030; }
+  #viewport { position: absolute; inset: 0; overflow: hidden; touch-action: none; }
+  #viewport canvas { outline: none; }
+  #hud-top { position: absolute; top: 6px; left: 6px; right: 150px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; pointer-events: none; direction: rtl; }
+  #hud-top > * { pointer-events: auto; }
+  .seg { display: inline-flex; border-radius: var(--radius); overflow: hidden; border: 1px solid #222; }
+  .seg button { border: 0; border-radius: 0; border-left: 1px solid #222; padding: 4px 8px; background: rgba(43,43,43,.92); }
+  .seg button:first-child { border-left: 0; }
+  .seg button.active { background: var(--accent); }
+  .hud-select { background: rgba(43,43,43,.92); }
+  #view-helper { position: absolute; top: 4px; right: 6px; width: 128px; height: 128px; z-index: 5; direction: ltr; }
+  #stats { position: absolute; left: 8px; bottom: 8px; background: rgba(20,20,20,.62); border-radius: 4px; padding: 6px 9px; font-size: 11px; line-height: 1.5; pointer-events: none; direction: rtl; min-width: 120px; }
+  #stats b { color: var(--dim); font-weight: 500; display: inline-block; min-width: 72px; }
+  #modal-status { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); background: rgba(232,125,13,.95); color: #111; padding: 5px 14px; border-radius: 4px; font-weight: 700; display: none; z-index: 6; direction: rtl; white-space: nowrap; }
+  #dropzone { position: absolute; inset: 10px; border: 2px dashed var(--accent); border-radius: 8px; background: rgba(75,123,181,.15); display: none; align-items: center; justify-content: center; font-size: 18px; z-index: 8; pointer-events: none; }
+  #side { background: var(--panel); border-left: 1px solid var(--line); display: grid; grid-template-rows: 38% 1fr; min-height: 0; direction: rtl; }
+  .panel-head { display: flex; align-items: center; gap: 4px; padding: 4px 6px; background: var(--panel2); border-bottom: 1px solid var(--line); }
+  .panel-head input[type=text] { flex: 1; }
+  #outliner-wrap, #props-wrap { display: flex; flex-direction: column; min-height: 0; }
+  #outliner-wrap { border-bottom: 1px solid var(--line); }
+  #outliner, #history { overflow: auto; flex: 1; padding: 3px 0; }
+  .orow { display: flex; align-items: center; gap: 4px; padding: 2px 6px; cursor: default; user-select: none; border-top: 2px solid transparent; border-bottom: 2px solid transparent; }
+  .orow:hover { background: #333; }
+  .orow.sel { background: #3d4f66; }
+  .orow.act { background: var(--accent); color: #fff; }
+  .orow.dropin { outline: 1px solid var(--accent2); }
+  .orow.dropbefore { border-top-color: var(--accent2); }
+  .orow.dropafter { border-bottom-color: var(--accent2); }
+  .orow .arrow { width: 14px; text-align: center; color: var(--dim); cursor: pointer; }
+  .orow .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .orow .name input { width: 100%; }
+  .orow .tog { opacity: .75; cursor: pointer; padding: 0 2px; }
+  .orow .tog.off { opacity: .3; }
+  .hrow { padding: 3px 10px; cursor: pointer; }
+  .hrow:hover { background: #333; }
+  .hrow.cur { background: var(--accent); color: #fff; }
+  .hrow.redo { color: var(--dim); }
+  #props-wrap { display: grid; grid-template-columns: 1fr 38px; min-height: 0; }
+  #props-tabs { display: flex; flex-direction: column; gap: 3px; padding: 6px 3px; background: var(--panel2); border-right: 1px solid var(--line); order: 2; }
+  #props-tabs button { width: 32px; height: 32px; padding: 0; font-size: 15px; }
+  #props { overflow: auto; padding: 8px; order: 1; min-height: 0; }
+  .sec { border: 1px solid #3a3a3a; border-radius: 4px; margin-bottom: 8px; background: #262626; }
+  .sec > h4 { margin: 0; padding: 4px 8px; font-size: 12px; background: #323232; border-radius: 4px 4px 0 0; color: #ddd; }
+  .sec > div { padding: 6px 8px; }
+  .frow { display: grid; grid-template-columns: 88px 1fr; align-items: center; gap: 6px; margin: 4px 0; }
+  .frow > label { color: var(--dim); font-size: 11.5px; }
+  .trio { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; direction: ltr; }
+  .btnrow { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }
+  .btnrow button { flex: 1 1 auto; }
+  .note { color: var(--dim); font-size: 11.5px; padding: 4px 2px; }
+  .slot { display: flex; gap: 6px; align-items: center; padding: 3px 6px; border-radius: 3px; cursor: pointer; }
+  .slot.sel { background: var(--accent); color: #fff; }
+  .swatch { width: 16px; height: 16px; border-radius: 3px; border: 1px solid #000; }
+  .menu { position: fixed; z-index: 1000; background: #252525; border: 1px solid #000; border-radius: 5px; padding: 4px 0; min-width: 190px; box-shadow: 0 6px 24px rgba(0,0,0,.6); direction: rtl; max-height: 80vh; overflow: auto; }
+  .menu .mi { display: flex; justify-content: space-between; gap: 22px; padding: 5px 14px; cursor: pointer; white-space: nowrap; position: relative; }
+  .menu .mi:hover { background: var(--accent); color: #fff; }
+  .menu .mi .key { color: var(--dim); direction: ltr; font-size: 11px; }
+  .menu .mi:hover .key { color: #dfe9f5; }
+  .menu .msep { height: 1px; background: #3a3a3a; margin: 4px 0; }
+  .menu .mi.dis { opacity: .4; pointer-events: none; }
+  #statusbar { background: #181818; border-top: 1px solid var(--line); padding: 0 10px; display: flex; align-items: center; gap: 16px; color: var(--dim); font-size: 11.5px; direction: rtl; overflow: hidden; white-space: nowrap; }
+  #toast { position: fixed; bottom: 44px; left: 50%; transform: translateX(-50%) translateY(20px); background: rgba(15,15,15,.94); color: #fff; padding: 8px 16px; border-radius: 6px; border: 1px solid #444; opacity: 0; transition: .25s; pointer-events: none; z-index: 2000; direction: rtl; max-width: 90vw; }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #touchbar { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: none; gap: 5px; background: rgba(30,30,30,.92); border: 1px solid #000; border-radius: 10px; padding: 6px; z-index: 7; max-width: 96%; overflow-x: auto; direction: rtl; }
+  #touchbar button { min-width: 42px; height: 38px; font-size: 14px; }
+  body.touch #touchbar { display: flex; }
+  body.touch #stats { bottom: 62px; }
+  @media (max-width: 900px) {
+    #main { grid-template-columns: 40px 1fr; }
+    #side { position: absolute; top: var(--menu-h); bottom: var(--status-h); right: 0; width: min(88vw, 340px); transform: translateX(100%); transition: transform .2s; z-index: 50; box-shadow: -6px 0 20px rgba(0,0,0,.5); }
+    body.side-open #side { transform: none; }
+    #hud-top { right: 140px; }
+    #side-toggle { display: inline-block !important; }
+  }
+  #side-toggle { display: none; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.187.0/examples/jsm/",
+    "three-mesh-bvh": "https://esm.sh/three-mesh-bvh@0.9.18?external=three",
+    "three-bvh-csg": "https://esm.sh/three-bvh-csg@0.0.18?external=three,three-mesh-bvh"
+  }
+}
+</script>
+</head>
+<body>
+<div id="app">
+  <div id="menubar">
+    <span class="brand">🧩 الاستوديو</span>
+    <button data-menu="file">ملف</button>
+    <button data-menu="edit">تحرير</button>
+    <button data-menu="add">إضافة</button>
+    <button data-menu="view">عرض</button>
+    <button data-menu="object">كائن</button>
+    <button data-menu="help">مساعدة</button>
+    <span class="spacer"></span>
+    <button id="side-toggle">☰ اللوحات</button>
+    <button id="home-link" title="العودة إلى الموقع">↩ الموقع</button>
+  </div>
+
+  <div id="main">
+    <div id="toolbar">
+      <button data-tool="select" title="تحديد (W)">⬚</button>
+      <button data-tool="cursor" title="مؤشر 3D (Shift + زر أيمن)">⌖</button>
+      <div class="sep"></div>
+      <button data-tool="move" title="نقل (G)">✥</button>
+      <button data-tool="rotate" title="تدوير (R)">↻</button>
+      <button data-tool="scale" title="تحجيم (S)">⤢</button>
+      <div class="sep"></div>
+      <button id="tb-undo" title="تراجع (Ctrl+Z)">↶</button>
+      <button id="tb-redo" title="إعادة (Ctrl+Shift+Z)">↷</button>
+    </div>
+
+    <div id="stage">
+      <div id="viewport"></div>
+      <div id="hud-top">
+        <select id="mode-select" class="hud-select" title="الوضع (Tab)">
+          <option value="object">وضع الكائنات</option>
+          <option value="edit">وضع التعديل (Tab)</option>
+          <option value="sculpt">وضع النحت</option>
+        </select>
+        <div class="seg" id="shade-seg">
+          <button data-shade="wire" title="سلكي">⌗ Wire</button>
+          <button data-shade="solid" class="active" title="Solid / Clay">● Solid</button>
+          <button data-shade="preview" title="Material Preview">◐ Preview</button>
+          <button data-shade="rendered" title="Rendered">◉ Rendered</button>
+        </div>
+        <button id="xray-btn" title="X-Ray (Alt+Z)">X-Ray</button>
+        <button id="proj-btn" title="منظور / متعامد (5)">منظور</button>
+        <div class="seg">
+          <button id="snap-btn" title="Snap (Ctrl أثناء التحويل)">🧲 Snap</button>
+        </div>
+        <select id="snap-mode" class="hud-select" title="نوع الالتصاق">
+          <option value="increment">شبكة</option>
+          <option value="vertex">رؤوس</option>
+          <option value="surface">سطح</option>
+        </select>
+        <select id="pivot-select" class="hud-select" title="نقطة الارتكاز">
+          <option value="median">Median Point</option>
+          <option value="cursor">3D Cursor</option>
+          <option value="individual">Individual Origins</option>
+        </select>
+        <select id="space-select" class="hud-select" title="الفضاء المرجعي">
+          <option value="global">Global</option>
+          <option value="local">Local</option>
+        </select>
+      </div>
+      <div id="view-helper"></div>
+      <div id="stats"></div>
+      <div id="modal-status"></div>
+      <div id="dropzone">أفلت ملف .glb / .gltf / .obj / .stl / .json هنا</div>
+      <div id="touchbar">
+        <button data-tb="move">✥ نقل</button>
+        <button data-tb="rotate">↻ تدوير</button>
+        <button data-tb="scale">⤢ تحجيم</button>
+        <button data-tb="ax-x">X</button>
+        <button data-tb="ax-y">Y</button>
+        <button data-tb="ax-z">Z</button>
+        <button data-tb="extrude" disabled title="Extrude (المرحلة 2)">E</button>
+        <button data-tb="undo">↶</button>
+        <button data-tb="redo">↷</button>
+        <button data-tb="mode">Tab</button>
+        <button data-tb="ok">✔</button>
+        <button data-tb="cancel">✖</button>
+      </div>
+    </div>
+
+    <div id="side">
+      <div id="outliner-wrap">
+        <div class="panel-head">
+          <button id="tab-outliner" class="active">المنظم</button>
+          <button id="tab-history">السجل</button>
+          <input type="text" id="outliner-search" placeholder="بحث بالاسم…" />
+        </div>
+        <div id="outliner"></div>
+        <div id="history" style="display:none"></div>
+      </div>
+      <div id="props-wrap">
+        <div id="props"></div>
+        <div id="props-tabs">
+          <button data-ptab="transform" title="التحويل">📐</button>
+          <button data-ptab="mesh" title="الشبكة والنورمالات">🔷</button>
+          <button data-ptab="modifiers" title="المعدلات">🔧</button>
+          <button data-ptab="material" title="الخامات">🎨</button>
+          <button data-ptab="world" title="الإضاءة والعالم">💡</button>
+          <button data-ptab="scene" title="المشهد والتصدير">📦</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="statusbar"><span id="status-sel">لا تحديد</span><span id="status-hint">G نقل · R تدوير · S تحجيم · Shift+A إضافة · Ctrl+Z تراجع</span></div>
+</div>
+<div id="toast"></div>
+<input type="file" id="file-import" accept=".glb,.gltf,.obj,.stl,.json" multiple hidden />
+<input type="file" id="file-texture" accept="image/*" hidden />
+
+<script type="module">
+  import './editor-viewport.js';
+  import './editor-ops.js';
+  import './editor-ui.js';
+  import './editor-io.js';
+</script>
+<!-- المراحل القادمة تُضاف هنا كوحدات مستقلة: editor-edit.js (Edit Mode)، editor-sculpt.js (Sculpt)، editor-modifiers.js (المعدلات) -->
+</body>
+</html>
